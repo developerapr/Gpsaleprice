@@ -1,0 +1,12 @@
+<?xml version="1.0"?> 
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd"> 
+ 	<preference for="Magento\Catalog\Model\Product\Attribute\Backend\TierPrice\UpdateHandler"
+               type="Arunendra\Gpsaleprice\Model\Product\Attribute\Backend\TierPrice\UpdatePriceHandler" />
+    <!--type name="Magento\Catalog\Model\Product\Attribute\Backend\TierPrice\UpdateHandler">
+        <plugin name="gp_sale_price_a" type="Arunendra\Gpsaleprice\Plugin\PluginPriceHandler" />
+    </type-->
+   <preference for="Magento\Catalog\Model\Product\Attribute\Backend\TierPrice\SaveHandler"
+               type="Arunendra\Gpsaleprice\Model\Product\Attribute\Backend\TierPrice\SavePriceHandler" />
+   <preference for="Magento\Catalog\Model\ResourceModel\Product\Attribute\Backend\Tierprice"
+               type="Arunendra\Gpsaleprice\Model\ResourceModel\Product\Attribute\Backend\DataColumnUpdate" />
+</config>

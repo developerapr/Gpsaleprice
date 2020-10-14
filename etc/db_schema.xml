@@ -1,0 +1,6 @@
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"   
+xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+   <table name="catalog_product_entity_tier_price" resource="default" engine="innodb" comment="Tier Pricing Table">
+       <column xsi:type="varchar" name="gp_sale_price" nullable="true" length="255" comment="Group Sale Price" />
+   </table>
+</schema>

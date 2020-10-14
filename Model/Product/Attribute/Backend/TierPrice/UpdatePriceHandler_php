@@ -1,0 +1,161 @@
+<?php
+namespace Arunendra\Gpsaleprice\Model\Product\Attribute\Backend\TierPrice;
+class UpdatePriceHandler extends \Magento\Catalog\Model\Product\Attribute\Backend\TierPrice\UpdateHandler
+{
+
+    public function __construct(
+        \Magento\Store\Model\StoreManagerInterface $storeManager,
+        \Magento\Catalog\Api\ProductAttributeRepositoryInterface $attributeRepository,      
+        \Magento\Framework\EntityManager\MetadataPool $metadataPool,
+        \Magento\Catalog\Model\ResourceModel\Product\Attribute\Backend\Tierprice $tierPriceResource       
+    ) {      
+        $this->storeManager = $storeManager;
+        $this->attributeRepository = $attributeRepository;
+        $this->metadataPoll = $metadataPool;
+        $this->tierPriceResource = $tierPriceResource;       
+    }
+    public function execute($entity, $arguments = [])
+    {
+        $attribute = $this->attributeRepository->get('tier_price');
+        $priceRows = $entity->getData($attribute->getName());
+        if (null !== $priceRows) {
+            if (!is_array($priceRows)) {
+                throw new \Magento\Framework\Exception\InputException(
+                    __('Tier prices data should be array, but actually other type is received')
+                );
+            }
+            $websiteId = (int)$this->storeManager->getStore($entity->getStoreId())->getWebsiteId();
+            $isGlobal = $attribute->isScopeGlobal() || $websiteId === 0;
+            $identifierField = $this->metadataPoll->getMetadata(\Magento\Catalog\Api\Data\ProductInterface::class)->getLinkField();
+            $productId = (int)$entity->getData($identifierField);
+
+            // prepare original data to compare
+            $origPrices = [];
+            $originalId = $entity->getOrigData($identifierField);
+            if (empty($originalId) || $entity->getData($identifierField) == $originalId) {
+                $origPrices = $entity->getOrigData($attribute->getName());
+            }
+
+            $old = $this->prepareOldTierPriceToCompare($origPrices);
+            // prepare data for save
+            $new = $this->prepareNewDataForSave($priceRows, $isGlobal);
+
+            $delete = array_diff_key($old, $new);
+            $insert = array_diff_key($new, $old);
+            $update = array_intersect_key($new, $old);
+
+            $isAttributeChanged = $this->deleteValues($productId, $delete);
+            $isAttributeChanged |= $this->insertValues($productId, $insert);
+            $isAttributeChanged |= $this->updateValues($update, $old);
+
+            if ($isAttributeChanged) {
+                $valueChangedKey = $attribute->getName() . '_changed';
+                $entity->setData($valueChangedKey, 1);
+            }
+        }
+
+        return $entity;
+    }
+
+    /**
+     * Update existing tier prices for processed product
+     *
+     * @param array $valuesToUpdate
+     * @param array $oldValues
+     * @return bool
+     */
+    private function updateValues(array $valuesToUpdate, array $oldValues): bool
+    {
+        $isChanged = false;
+        foreach ($valuesToUpdate as $key => $value) {
+             if ((!empty($value['value']) && (float)$oldValues[$key]['price'] !== (float)$value['value'])
+           || $this->getPercentage($oldValues[$key]) !== $this->getPercentage($value)
+           || $this->getSecondaryUnit($oldValues[$key]) !== $this->getSecondaryUnit($value)
+        ) {
+                $price = new \Magento\Framework\DataObject(
+                    [
+                        'value_id' => $oldValues[$key]['price_id'],
+                        'value' => $value['value'],
+                        'percentage_value' => $this->getPercentage($value),
+                        'gp_sale_price' => $this->getSecondaryUnit($value),
+                    ]
+                );
+                $this->tierPriceResource->savePriceData($price);
+                $isChanged = true;
+            }
+        }
+
+        return $isChanged;
+    }
+
+    /**
+    * @param array $priceRow
+    * @return mixed|null
+    */
+    public function getSecondaryUnit(array  $priceRow)
+    {
+       return isset($priceRow['gp_sale_price']) && !empty($priceRow['gp_sale_price'])
+           ? $priceRow['gp_sale_price']
+           : null;
+    } 
+     /**
+     * Prepare old data to compare.
+     *
+     * @param array|null $origPrices
+     * @return array
+     */
+    private function prepareOldTierPriceToCompare(?array $origPrices): array
+    {
+        $old = [];
+        if (is_array($origPrices)) {
+            foreach ($origPrices as $data) {
+                $key = $this->getPriceKey($data);
+                $old[$key] = $data;
+            }
+        }
+
+        return $old;
+    }
+      /**
+     * Get generated price key based on price data
+     *
+     * @param array $priceData
+     * @return string
+     */
+    private function getPriceKey(array $priceData): string
+    {
+        $qty = $this->parseQty($priceData['price_qty']);
+        $key = implode(
+            '-',
+            array_merge([$priceData['website_id'], $priceData['cust_group']], [$qty])
+        );
+
+        return $key;
+    }
+     /**
+     * Prepare new data for save.
+     *
+     * @param array $priceRows
+     * @param bool $isGlobal
+     * @return array
+     * @throws \Magento\Framework\Exception\LocalizedException
+     */
+    private function prepareNewDataForSave(array $priceRows, bool $isGlobal = true): array
+    {
+        $new = [];
+        $priceRows = array_filter($priceRows);
+        foreach ($priceRows as $data) {
+            if (empty($data['delete'])
+                && (!empty($data['price_qty'])
+                    || isset($data['cust_group'])
+                    || $isGlobal === $this->isWebsiteGlobal((int)$data['website_id']))
+            ) {
+                $key = $this->getPriceKey($data);
+                $new[$key] = $this->prepareTierPrice($data);
+            }
+        }
+
+        return $new;
+    }
+
+}
