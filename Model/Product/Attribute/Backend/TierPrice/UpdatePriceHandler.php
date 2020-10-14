@@ -50,7 +50,7 @@ class UpdatePriceHandler extends \Magento\Catalog\Model\Product\Attribute\Backen
         $this->attributeRepository = $attributeRepository;
         $this->metadataPoll = $metadataPool;
         $this->tierPriceResource = $tierPriceResource;
-        $this->localeFormat = $localeFormat ?: ObjectManager::getInstance()->get(FormatInterface::class);
+        $this->localeFormat = $localeFormat ?: ObjectManager::getInstance()->get(\Magento\Framework\Locale\FormatInterface::class);
     }
 
     /**
@@ -63,8 +63,7 @@ class UpdatePriceHandler extends \Magento\Catalog\Model\Product\Attribute\Backen
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function execute($entity, $arguments = [])
-    {
-        die("here");
+    {        
         $attribute = $this->attributeRepository->get('tier_price');
         $priceRows = $entity->getData($attribute->getName());
         if (null !== $priceRows) {
